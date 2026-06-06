@@ -1,0 +1,156 @@
+	#include <ESP8266WiFi.h>
+	#include <ESP8266HTTPClient.h>
+	
+	#define SENSOR_PIN D2
+	#define BUZZER_PIN D5
+	
+	// ================= WIFI =================
+	const char* ssid = "Redmi Note 13";
+	const char* password = "1234567891011";
+	
+	// ================= SERVER =================
+	String serverName = "http://10.126.128.13/visitor/update.php";
+	
+	// ================= VARIABLE =================
+	bool sudah = false;
+	
+	// ================= CONNECT WIFI =================
+	void connectWiFi() {
+	
+	  Serial.println();
+	  Serial.println("Connecting WiFi...");
+	
+	  WiFi.mode(WIFI_STA);
+	  WiFi.begin(ssid, password);
+	
+	  int timeout = 0;
+	
+	  while (WiFi.status() != WL_CONNECTED) {
+	
+	    delay(500);
+	    Serial.print(".");
+	
+	    timeout++;
+	
+	    if (timeout > 40) {
+	
+	      Serial.println();
+	      Serial.println("WiFi gagal connect!");
+	      return;
+	    }
+	  }
+	
+	  Serial.println();
+	  Serial.println("WiFi Connected!");
+	  Serial.print("IP ESP : ");
+	  Serial.println(WiFi.localIP());
+	}
+	
+	// ================= BUZZER =================
+	void bunyiBuzzer() {
+	
+	  digitalWrite(BUZZER_PIN, HIGH);
+	  delay(200);
+	  digitalWrite(BUZZER_PIN, LOW);
+	}
+	
+	// ================= SETUP =================
+	void setup() {
+	
+	  Serial.begin(9600);
+	
+	  pinMode(SENSOR_PIN, INPUT_PULLUP);
+	  pinMode(BUZZER_PIN, OUTPUT);
+	
+	  digitalWrite(BUZZER_PIN, LOW);
+	
+	  delay(1000);
+	
+	  Serial.println();
+	  Serial.println("========================");
+	  Serial.println("VISITOR COUNTER SYSTEM");
+	  Serial.println("========================");
+	
+	  connectWiFi();
+	
+	  Serial.println();
+	  Serial.println("WEB VISITOR:");
+	  Serial.println("http://10.126.128.13/visitor/");
+	}
+	
+	// ================= LOOP =================
+	void loop() {
+	
+	  int val = digitalRead(SENSOR_PIN);
+	
+	  // ================= DETEKSI =================
+	  if (val == LOW && !sudah) {
+	
+	    sudah = true;
+	
+	    Serial.println();
+	    Serial.println("========================");
+	    Serial.println("Visitor Terdeteksi!");
+	
+	    // buzzer
+	    bunyiBuzzer();
+	
+	    // cek wifi
+	    if (WiFi.status() != WL_CONNECTED) {
+	
+	      Serial.println("WiFi Putus!");
+	      connectWiFi();
+	    }
+	
+	    // kirim data
+	    if (WiFi.status() == WL_CONNECTED) {
+	
+	      WiFiClient client;
+	      HTTPClient http;
+	
+	      String url = serverName + "?increment=1";
+	
+	      Serial.println("Kirim Data Ke Server...");
+	      Serial.println(url);
+	
+	      http.begin(client, url);
+	
+	      // timeout
+	      http.setTimeout(5000);
+	
+	      int httpCode = http.GET();
+	
+	      Serial.print("HTTP Code : ");
+	      Serial.println(httpCode);
+	
+	      // berhasil
+	      if (httpCode > 0) {
+	
+	        String payload = http.getString();
+	
+	        Serial.println("Response Server:");
+	        Serial.println(payload);
+	
+	        Serial.println("Data berhasil dikirim");
+	      }
+	
+	      // gagal
+	      else {
+	
+	        Serial.println("Gagal kirim data");
+	      }
+	
+	      http.end();
+	    }
+	
+	    delay(1500);
+	  }
+	
+	  // ================= RESET =================
+	  if (val == HIGH && sudah) {
+	
+	    delay(200);
+	    sudah = false;
+	  }
+	
+	  delay(100);	}
